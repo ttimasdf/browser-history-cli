@@ -135,7 +135,7 @@ pub fn build_safari_date_filter(
     Ok(clauses.join(" AND "))
 }
 
-pub fn query_db(db_path: &Path, sql: &str, sep: char) -> Result<Vec<Vec<String>>> {
+pub fn query_db(db_path: &Path, sql: &str, _sep: char) -> Result<Vec<Vec<String>>> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare(sql)?;
     let col_count = stmt.column_count();

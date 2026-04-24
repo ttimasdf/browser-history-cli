@@ -235,7 +235,7 @@ pub fn summary(
     );
     let stats = db::query_db(db_path, &stats_sql, '\t')?;
     if let Some(row) = stats.first() {
-        println!("Total visits:    {}", row.get(0).unwrap_or(&"0".to_string()));
+        println!("Total visits:    {}", row.first().unwrap_or(&"0".to_string()));
         println!("Unique URLs:     {}", row.get(1).unwrap_or(&"0".to_string()));
         println!(
             "Total duration:  {} hours",
@@ -256,7 +256,7 @@ pub fn summary(
     );
     let domains = db::query_db(db_path, &domains_sql, '\t')?;
     for row in domains {
-        let domain = row.get(0).unwrap_or(&"".to_string()).clone();
+        let domain = row.first().unwrap_or(&"".to_string()).clone();
         let count = row.get(1).unwrap_or(&"0".to_string()).clone();
         println!("  {:<40} {} visits", domain, count);
     }
@@ -275,7 +275,7 @@ pub fn summary(
     );
     let transitions = db::query_db(db_path, &transitions_sql, '\t')?;
     for row in transitions {
-        let typ = row.get(0).unwrap_or(&"".to_string()).clone();
+        let typ = row.first().unwrap_or(&"".to_string()).clone();
         let count = row.get(1).unwrap_or(&"0".to_string()).clone();
         println!("  {:<20} {}", typ, count);
     }

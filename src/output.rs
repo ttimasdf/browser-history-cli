@@ -3,10 +3,6 @@ pub fn print_header(sep: char, columns: &[&str]) {
     println!("{}", line);
 }
 
-pub fn format_row(sep: char, values: &[String]) -> String {
-    values.join(&sep.to_string())
-}
-
 pub fn sep_for_format(format: &str) -> char {
     match format {
         "csv" => ',',
