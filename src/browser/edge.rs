@@ -1,19 +1,15 @@
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use super::chromium;
+use super::chromium_shared;
 use crate::db;
 
 fn home_dir() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".to_string()))
 }
 
-fn get_db_path() -> Result<PathBuf> {
-    if let Ok(custom) = std::env::var("EDGE_HISTORY_DB") {
-        return Ok(PathBuf::from(custom));
-    }
-
-    let base_dir = if cfg!(target_os = "macos") {
+fn base_dir() -> PathBuf {
+    if cfg!(target_os = "macos") {
         home_dir().join("Library/Application Support/Microsoft Edge")
     } else if cfg!(target_os = "linux") {
         home_dir().join(".config/microsoft-edge")
@@ -22,102 +18,70 @@ fn get_db_path() -> Result<PathBuf> {
             .or_else(|_| std::env::var("USERPROFILE").map(|p| format!("{}/AppData/Local", p)))
             .unwrap_or_default();
         PathBuf::from(local_app_data).join("Microsoft/Edge/User Data")
-    };
-
-    if base_dir.join("Default/History").exists() {
-        Ok(base_dir.join("Default/History"))
-    } else {
-        let profile = find_first_profile(&base_dir);
-        if let Some(p) = profile {
-            Ok(p)
-        } else {
-            Ok(base_dir.join("Default/History"))
-        }
     }
 }
 
-fn find_first_profile(base_dir: &Path) -> Option<PathBuf> {
-    let entries = std::fs::read_dir(base_dir).ok()?;
-    let mut profiles: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
-                && e.file_name().to_string_lossy().starts_with("Profile ")
-        })
-        .map(|e| e.path().join("History"))
-        .filter(|p| p.exists())
-        .collect();
-    profiles.sort();
-    profiles.into_iter().next()
-}
-
-fn prepared_db() -> Result<PathBuf> {
-    let path = get_db_path()?;
-    db::prepare_db(&path).map_err(|_| {
-        anyhow::anyhow!(
-            "Edge history DB not found: {}. Set EDGE_HISTORY_DB env var.",
-            path.display()
-        )
-    })
+pub fn get_db_path(profile: Option<&str>) -> Result<PathBuf> {
+    if let Ok(custom) = std::env::var("EDGE_HISTORY_DB") {
+        return Ok(PathBuf::from(custom));
+    }
+    chromium_shared::find_chromium_db_path(&base_dir(), profile)
 }
 
 pub fn urls(
-    _from: Option<&str>,
-    _to: Option<&str>,
-    _limit: i64,
-    _format: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    limit: i64,
+    format: &str,
+    profile: Option<&str>,
 ) -> Result<()> {
-    let db_path = prepared_db()?;
-    let _guard = CleanupGuard(db_path.clone());
-    chromium::urls(&db_path, _from, _to, _limit, _format)
+    let db_path = get_db_path(profile)?;
+    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
+    chromium_shared::urls(&_guard.0, from, to, limit, format)
 }
 
 pub fn visits(
-    _from: Option<&str>,
-    _to: Option<&str>,
-    _limit: i64,
-    _format: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    limit: i64,
+    format: &str,
+    profile: Option<&str>,
 ) -> Result<()> {
-    let db_path = prepared_db()?;
-    let _guard = CleanupGuard(db_path.clone());
-    chromium::visits(&db_path, _from, _to, _limit, _format)
+    let db_path = get_db_path(profile)?;
+    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
+    chromium_shared::visits(&_guard.0, from, to, limit, format)
 }
 
 pub fn searches(
-    _from: Option<&str>,
-    _to: Option<&str>,
-    _limit: i64,
-    _format: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    limit: i64,
+    format: &str,
+    profile: Option<&str>,
 ) -> Result<()> {
-    let db_path = prepared_db()?;
-    let _guard = CleanupGuard(db_path.clone());
-    chromium::searches(&db_path, _from, _to, _limit, _format)
+    let db_path = get_db_path(profile)?;
+    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
+    chromium_shared::searches(&_guard.0, from, to, limit, format)
 }
 
 pub fn downloads(
-    _from: Option<&str>,
-    _to: Option<&str>,
-    _limit: i64,
-    _format: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    limit: i64,
+    format: &str,
+    profile: Option<&str>,
 ) -> Result<()> {
-    let db_path = prepared_db()?;
-    let _guard = CleanupGuard(db_path.clone());
-    chromium::downloads(&db_path, _from, _to, _limit, _format)
+    let db_path = get_db_path(profile)?;
+    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
+    chromium_shared::downloads(&_guard.0, from, to, limit, format)
 }
 
 pub fn summary(
-    _from: Option<&str>,
-    _to: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    profile: Option<&str>,
 ) -> Result<()> {
-    let db_path = prepared_db()?;
-    let _guard = CleanupGuard(db_path.clone());
-    chromium::summary(&db_path, "Edge", _from, _to)
-}
-
-struct CleanupGuard(PathBuf);
-
-impl Drop for CleanupGuard {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
+    let db_path = get_db_path(profile)?;
+    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
+    chromium_shared::summary(&_guard.0, "Edge", from, to)
 }

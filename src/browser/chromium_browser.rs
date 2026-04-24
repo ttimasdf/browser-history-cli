@@ -9,23 +9,27 @@ fn home_dir() -> PathBuf {
 }
 
 fn base_dir() -> PathBuf {
+    if let Ok(custom) = std::env::var("CHROMIUM_HISTORY_DB") {
+        return PathBuf::from(custom);
+    }
     if cfg!(target_os = "macos") {
-        home_dir().join("Library/Application Support/Google/Chrome")
+        home_dir().join("Library/Application Support/Chromium")
     } else if cfg!(target_os = "linux") {
-        home_dir().join(".config/google-chrome")
+        home_dir().join(".config/chromium")
     } else {
         let local_app_data = std::env::var("LOCALAPPDATA")
             .or_else(|_| std::env::var("USERPROFILE").map(|p| format!("{}/AppData/Local", p)))
             .unwrap_or_default();
-        PathBuf::from(local_app_data).join("Google/Chrome/User Data")
+        PathBuf::from(local_app_data).join("Chromium/User Data")
     }
 }
 
 pub fn get_db_path(profile: Option<&str>) -> Result<PathBuf> {
-    if let Ok(custom) = std::env::var("CHROME_HISTORY_DB") {
+    if let Ok(custom) = std::env::var("CHROMIUM_HISTORY_DB") {
         return Ok(PathBuf::from(custom));
     }
-    chromium_shared::find_chromium_db_path(&base_dir(), profile)
+    let bd = base_dir();
+    chromium_shared::find_chromium_db_path(&bd, profile)
 }
 
 pub fn urls(
@@ -107,5 +111,5 @@ pub fn summary(
 ) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
-    chromium_shared::summary(&_guard.0, "Chrome", from, to)
+    chromium_shared::summary(&_guard.0, "Chromium", from, to)
 }

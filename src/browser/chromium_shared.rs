@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::db;
 use crate::output;
@@ -8,6 +8,43 @@ const CHROMIUM_DT_EXPR: &str = "datetime({}/1000000 - 11644473600, 'unixepoch', 
 
 fn chromium_dt(col: &str) -> String {
     CHROMIUM_DT_EXPR.replace("{}", col)
+}
+
+pub fn find_chromium_db_path(base_dir: &Path, profile: Option<&str>) -> Result<PathBuf> {
+    if let Some(p) = profile {
+        let path = base_dir.join(p).join("History");
+        if path.exists() {
+            return Ok(path);
+        }
+        anyhow::bail!(
+            "Profile '{}' not found or has no History DB at {}",
+            p, path.display()
+        );
+    }
+
+    if base_dir.join("Default/History").exists() {
+        return Ok(base_dir.join("Default/History"));
+    }
+
+    let entries = std::fs::read_dir(base_dir)?;
+    let mut profiles: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+                && e.file_name().to_string_lossy().starts_with("Profile ")
+        })
+        .map(|e| e.path().join("History"))
+        .filter(|p| p.exists())
+        .collect();
+    profiles.sort();
+    if let Some(p) = profiles.into_iter().next() {
+        return Ok(p);
+    }
+
+    anyhow::bail!(
+        "No History DB found in {}. Set env var or use --profile.",
+        base_dir.display()
+    )
 }
 
 pub fn urls(

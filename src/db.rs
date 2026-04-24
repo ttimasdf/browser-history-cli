@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rusqlite::Connection;
+use rusqlite::{Connection, types::ValueRef};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -27,6 +27,16 @@ extern "C" {
     fn mktime(tp: *mut Tm) -> i64;
 }
 
+fn row_col_to_string(row: &rusqlite::Row, i: usize) -> rusqlite::Result<String> {
+    match row.get_ref(i)? {
+        ValueRef::Null => Ok(String::new()),
+        ValueRef::Integer(n) => Ok(n.to_string()),
+        ValueRef::Real(f) => Ok(f.to_string()),
+        ValueRef::Text(t) => Ok(String::from_utf8_lossy(t).to_string()),
+        ValueRef::Blob(b) => Ok(format!("[blob:{}B]", b.len())),
+    }
+}
+
 pub fn prepare_db(path: &Path) -> Result<PathBuf> {
     if !path.exists() {
         anyhow::bail!("History DB not found: {}", path.display());
@@ -37,6 +47,14 @@ pub fn prepare_db(path: &Path) -> Result<PathBuf> {
     fs::copy(path, &tmp_path)
         .with_context(|| format!("Failed to copy DB to temp: {}", path.display()))?;
     Ok(tmp_path)
+}
+
+pub struct TempFileGuard(pub PathBuf);
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
 }
 
 pub fn date_to_epoch_secs(date: &str) -> Result<i64> {
@@ -145,8 +163,7 @@ pub fn query_db(db_path: &Path, sql: &str, _sep: char) -> Result<Vec<Vec<String>
     while let Some(row) = rows.next()? {
         let mut cols = Vec::with_capacity(col_count);
         for i in 0..col_count {
-            let val: String = row.get::<_, Option<String>>(i)?.unwrap_or_default();
-            cols.push(val);
+            cols.push(row_col_to_string(row, i)?);
         }
         results.push(cols);
     }
@@ -165,8 +182,7 @@ pub fn query_db_formatted(db_path: &Path, sql: &str, sep: char) -> Result<()> {
             if i > 0 {
                 line.push(sep);
             }
-            let val: String = row.get::<_, Option<String>>(i)?.unwrap_or_default();
-            line.push_str(&val);
+            line.push_str(&row_col_to_string(row, i)?);
         }
         println!("{}", line);
     }

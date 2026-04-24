@@ -2,7 +2,7 @@ mod browser;
 mod db;
 mod output;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 const VERSION: &str = "v0.2.0";
 
@@ -13,12 +13,17 @@ struct Cli {
     browser: BrowserCmd,
 }
 
-#[derive(Subcommand)]
+#[derive(clap::Subcommand)]
 enum BrowserCmd {
     /// Google Chrome / Chromium
     Chrome {
         #[command(subcommand)]
         command: ChromeCommand,
+    },
+    /// Chromium (generic)
+    Chromium {
+        #[command(subcommand)]
+        command: ChromiumCommand,
     },
     /// Microsoft Edge
     Edge {
@@ -37,7 +42,7 @@ enum BrowserCmd {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(clap::Subcommand)]
 enum ChromeCommand {
     /// Extract visited URLs
     Urls(CommonOpts),
@@ -55,7 +60,25 @@ enum ChromeCommand {
     Summary(SummaryOpts),
 }
 
-#[derive(Subcommand)]
+#[derive(clap::Subcommand)]
+enum ChromiumCommand {
+    /// Extract visited URLs
+    Urls(CommonOpts),
+    /// Extract individual visit records
+    Visits(CommonOpts),
+    /// Extract search keywords
+    Searches(CommonOpts),
+    /// Extract download history
+    Downloads(CommonOpts),
+    /// Extract content annotations
+    Annotations(CommonOpts),
+    /// Extract context annotations
+    Contexts(CommonOpts),
+    /// Show summary statistics
+    Summary(SummaryOpts),
+}
+
+#[derive(clap::Subcommand)]
 enum EdgeCommand {
     /// Extract visited URLs
     Urls(CommonOpts),
@@ -69,7 +92,7 @@ enum EdgeCommand {
     Summary(SummaryOpts),
 }
 
-#[derive(Subcommand)]
+#[derive(clap::Subcommand)]
 enum FirefoxCommand {
     /// Extract visited URLs
     Urls(CommonOpts),
@@ -83,7 +106,7 @@ enum FirefoxCommand {
     Summary(SummaryOpts),
 }
 
-#[derive(Subcommand)]
+#[derive(clap::Subcommand)]
 enum SafariCommand {
     /// Extract visited URLs
     Urls(CommonOpts),
@@ -107,6 +130,9 @@ pub struct CommonOpts {
     /// Output format
     #[arg(long, default_value = "tsv", value_parser = parse_format)]
     pub format: String,
+    /// Browser profile name (e.g., "Default", "Profile 1")
+    #[arg(short, long)]
+    pub profile: Option<String>,
 }
 
 #[derive(Parser, Clone)]
@@ -117,6 +143,9 @@ pub struct SummaryOpts {
     /// End date (inclusive, YYYY-MM-DD)
     #[arg(short, long)]
     pub to: Option<String>,
+    /// Browser profile name (e.g., "Default", "Profile 1")
+    #[arg(short, long)]
+    pub profile: Option<String>,
 }
 
 fn parse_format(s: &str) -> Result<String, String> {
@@ -131,20 +160,29 @@ fn run() -> anyhow::Result<()> {
 
     match cli.browser {
         BrowserCmd::Chrome { command } => match command {
-            ChromeCommand::Urls(o) => browser::chrome::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Visits(o) => browser::chrome::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Searches(o) => browser::chrome::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Downloads(o) => browser::chrome::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Annotations(o) => browser::chrome::annotations(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Contexts(o) => browser::chrome::contexts(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            ChromeCommand::Summary(o) => browser::chrome::summary(o.from.as_deref(), o.to.as_deref()),
+            ChromeCommand::Urls(o) => browser::chrome::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Visits(o) => browser::chrome::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Searches(o) => browser::chrome::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Downloads(o) => browser::chrome::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Annotations(o) => browser::chrome::annotations(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Contexts(o) => browser::chrome::contexts(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromeCommand::Summary(o) => browser::chrome::summary(o.from.as_deref(), o.to.as_deref(), o.profile.as_deref()),
+        },
+        BrowserCmd::Chromium { command } => match command {
+            ChromiumCommand::Urls(o) => browser::chromium_browser::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Visits(o) => browser::chromium_browser::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Searches(o) => browser::chromium_browser::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Downloads(o) => browser::chromium_browser::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Annotations(o) => browser::chromium_browser::annotations(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Contexts(o) => browser::chromium_browser::contexts(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            ChromiumCommand::Summary(o) => browser::chromium_browser::summary(o.from.as_deref(), o.to.as_deref(), o.profile.as_deref()),
         },
         BrowserCmd::Edge { command } => match command {
-            EdgeCommand::Urls(o) => browser::edge::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            EdgeCommand::Visits(o) => browser::edge::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            EdgeCommand::Searches(o) => browser::edge::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            EdgeCommand::Downloads(o) => browser::edge::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
-            EdgeCommand::Summary(o) => browser::edge::summary(o.from.as_deref(), o.to.as_deref()),
+            EdgeCommand::Urls(o) => browser::edge::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            EdgeCommand::Visits(o) => browser::edge::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            EdgeCommand::Searches(o) => browser::edge::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            EdgeCommand::Downloads(o) => browser::edge::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, o.profile.as_deref()),
+            EdgeCommand::Summary(o) => browser::edge::summary(o.from.as_deref(), o.to.as_deref(), o.profile.as_deref()),
         },
         BrowserCmd::Firefox { command } => match command {
             FirefoxCommand::Urls(o) => browser::firefox::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
