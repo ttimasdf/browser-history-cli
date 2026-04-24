@@ -126,37 +126,44 @@ fn parse_format(s: &str) -> Result<String, String> {
     }
 }
 
-fn main() {
+fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.browser {
         BrowserCmd::Chrome { command } => match command {
-            ChromeCommand::Urls(_opts) => todo!("chrome urls"),
-            ChromeCommand::Visits(_opts) => todo!("chrome visits"),
-            ChromeCommand::Searches(_opts) => todo!("chrome searches"),
-            ChromeCommand::Downloads(_opts) => todo!("chrome downloads"),
-            ChromeCommand::Annotations(_opts) => todo!("chrome annotations"),
-            ChromeCommand::Contexts(_opts) => todo!("chrome contexts"),
-            ChromeCommand::Summary(_opts) => todo!("chrome summary"),
+            ChromeCommand::Urls(o) => browser::chrome::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Visits(o) => browser::chrome::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Searches(o) => browser::chrome::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Downloads(o) => browser::chrome::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Annotations(o) => browser::chrome::annotations(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Contexts(o) => browser::chrome::contexts(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            ChromeCommand::Summary(o) => browser::chrome::summary(o.from.as_deref(), o.to.as_deref()),
         },
         BrowserCmd::Edge { command } => match command {
-            EdgeCommand::Urls(_opts) => todo!("edge urls"),
-            EdgeCommand::Visits(_opts) => todo!("edge visits"),
-            EdgeCommand::Searches(_opts) => todo!("edge searches"),
-            EdgeCommand::Downloads(_opts) => todo!("edge downloads"),
-            EdgeCommand::Summary(_opts) => todo!("edge summary"),
+            EdgeCommand::Urls(o) => browser::edge::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            EdgeCommand::Visits(o) => browser::edge::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            EdgeCommand::Searches(o) => browser::edge::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            EdgeCommand::Downloads(o) => browser::edge::downloads(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            EdgeCommand::Summary(o) => browser::edge::summary(o.from.as_deref(), o.to.as_deref()),
         },
         BrowserCmd::Firefox { command } => match command {
-            FirefoxCommand::Urls(_opts) => todo!("firefox urls"),
-            FirefoxCommand::Visits(_opts) => todo!("firefox visits"),
-            FirefoxCommand::Searches(_opts) => todo!("firefox searches"),
-            FirefoxCommand::Bookmarks(_opts) => todo!("firefox bookmarks"),
-            FirefoxCommand::Summary(_opts) => todo!("firefox summary"),
+            FirefoxCommand::Urls(o) => browser::firefox::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            FirefoxCommand::Visits(o) => browser::firefox::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            FirefoxCommand::Searches(o) => browser::firefox::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            FirefoxCommand::Bookmarks(o) => browser::firefox::bookmarks(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            FirefoxCommand::Summary(o) => browser::firefox::summary(o.from.as_deref(), o.to.as_deref()),
         },
         BrowserCmd::Safari { command } => match command {
-            SafariCommand::Urls(_opts) => todo!("safari urls"),
-            SafariCommand::Visits(_opts) => todo!("safari visits"),
-            SafariCommand::Summary(_opts) => todo!("safari summary"),
+            SafariCommand::Urls(o) => browser::safari::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            SafariCommand::Visits(o) => browser::safari::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format),
+            SafariCommand::Summary(o) => browser::safari::summary(o.from.as_deref(), o.to.as_deref()),
         },
+    }
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {:#}", e);
+        std::process::exit(1);
     }
 }
