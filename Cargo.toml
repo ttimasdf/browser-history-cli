@@ -1,0 +1,9 @@
+[package]
+name = "browser-history"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+rusqlite = { version = "0.31", features = ["bundled"] }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
