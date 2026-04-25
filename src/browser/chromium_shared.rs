@@ -47,6 +47,42 @@ pub fn find_chromium_db_path(base_dir: &Path, profile: Option<&str>) -> Result<P
     )
 }
 
+pub fn list_profiles(base_dir: &Path) -> Result<()> {
+    if !base_dir.exists() {
+        anyhow::bail!("Browser data directory not found: {}", base_dir.display());
+    }
+
+    let mut found = Vec::new();
+
+    let default = base_dir.join("Default/History");
+    if default.exists() {
+        found.push("Default".to_string());
+    }
+
+    let entries = std::fs::read_dir(base_dir)?;
+    let mut profile_dirs: Vec<String> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+                && e.file_name().to_string_lossy().starts_with("Profile ")
+        })
+        .filter(|e| e.path().join("History").exists())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    profile_dirs.sort();
+    found.extend(profile_dirs);
+
+    if found.is_empty() {
+        println!("No profiles found in {}", base_dir.display());
+    } else {
+        for p in &found {
+            println!("{}", p);
+        }
+    }
+
+    Ok(())
+}
+
 pub fn urls(
     db_path: &Path,
     from: Option<&str>,

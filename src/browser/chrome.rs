@@ -8,7 +8,7 @@ fn home_dir() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".to_string()))
 }
 
-fn base_dir() -> PathBuf {
+pub fn base_dir() -> PathBuf {
     if cfg!(target_os = "macos") {
         home_dir().join("Library/Application Support/Google/Chrome")
     } else if cfg!(target_os = "linux") {
@@ -28,83 +28,51 @@ pub fn get_db_path(profile: Option<&str>) -> Result<PathBuf> {
     chromium_shared::find_chromium_db_path(&base_dir(), profile)
 }
 
-pub fn urls(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn list_profiles() -> Result<()> {
+    if let Ok(custom) = std::env::var("CHROME_HISTORY_DB") {
+        println!("Custom DB: {}", custom);
+        return Ok(());
+    }
+    chromium_shared::list_profiles(&base_dir())
+}
+
+pub fn urls(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::urls(&_guard.0, from, to, limit, format)
 }
 
-pub fn visits(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn visits(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::visits(&_guard.0, from, to, limit, format)
 }
 
-pub fn searches(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn searches(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::searches(&_guard.0, from, to, limit, format)
 }
 
-pub fn downloads(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn downloads(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::downloads(&_guard.0, from, to, limit, format)
 }
 
-pub fn annotations(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn annotations(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::annotations(&_guard.0, from, to, limit, format)
 }
 
-pub fn contexts(
-    from: Option<&str>,
-    to: Option<&str>,
-    limit: i64,
-    format: &str,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn contexts(from: Option<&str>, to: Option<&str>, limit: i64, format: &str, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::contexts(&_guard.0, from, to, limit, format)
 }
 
-pub fn summary(
-    from: Option<&str>,
-    to: Option<&str>,
-    profile: Option<&str>,
-) -> Result<()> {
+pub fn summary(from: Option<&str>, to: Option<&str>, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
     let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
     chromium_shared::summary(&_guard.0, "Chrome", from, to)
