@@ -18,7 +18,35 @@ cd browser-history-cli
 cargo build --release
 ```
 
-The binary will be at `target/release/browser-history`.
+The binary will be at `target/release/browser-history`. Note that on NixOS
+this binary is dynamically linked against the Nix store's glibc and will **not**
+run on other distros.
+
+### Static (portable) build
+
+To produce a fully static binary that runs on any x86_64 Linux distro
+(no glibc / Nix store dependency), build against the musl target:
+
+```bash
+./build-static.sh
+```
+
+The static binary will be at
+`target/x86_64-unknown-linux-musl/release/browser-history`.
+
+```console
+$ file target/x86_64-unknown-linux-musl/release/browser-history
+ELF 64-bit LSB pie executable, x86-64, static-pie linked, stripped
+$ ldd target/x86_64-unknown-linux-musl/release/browser-history
+        statically linked
+```
+
+It's ~3 MB and has no runtime dependencies — just copy it to the target machine.
+
+On NixOS the script bootstraps a `rustup` toolchain and a musl-targeting GCC via
+`nix-shell` automatically. On other distros, install `rustup` (with the
+`x86_64-unknown-linux-musl` target) and a musl C compiler (`musl-tools`), then
+run the script.
 
 ## Usage
 
