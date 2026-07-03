@@ -18,24 +18,18 @@ enum BrowserCmd {
     Chrome {
         #[arg(short, long)]
         profile: Option<String>,
-        #[arg(long)]
-        list_profiles: bool,
         #[command(subcommand)]
         command: Option<ChromeCommand>,
     },
     Chromium {
         #[arg(short, long)]
         profile: Option<String>,
-        #[arg(long)]
-        list_profiles: bool,
         #[command(subcommand)]
         command: Option<ChromiumCommand>,
     },
     Edge {
         #[arg(short, long)]
         profile: Option<String>,
-        #[arg(long)]
-        list_profiles: bool,
         #[command(subcommand)]
         command: Option<EdgeCommand>,
     },
@@ -51,6 +45,7 @@ enum BrowserCmd {
 
 #[derive(clap::Subcommand)]
 enum ChromeCommand {
+    Profiles,
     Urls(CommonOpts),
     Visits(CommonOpts),
     Searches(CommonOpts),
@@ -62,6 +57,7 @@ enum ChromeCommand {
 
 #[derive(clap::Subcommand)]
 enum ChromiumCommand {
+    Profiles,
     Urls(CommonOpts),
     Visits(CommonOpts),
     Searches(CommonOpts),
@@ -73,6 +69,7 @@ enum ChromiumCommand {
 
 #[derive(clap::Subcommand)]
 enum EdgeCommand {
+    Profiles,
     Urls(CommonOpts),
     Visits(CommonOpts),
     Searches(CommonOpts),
@@ -127,12 +124,10 @@ fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.browser {
-        BrowserCmd::Chrome { profile, list_profiles, command } => {
-            if list_profiles {
-                return browser::chrome::list_profiles();
-            }
+        BrowserCmd::Chrome { profile, command } => {
             let p = profile.as_deref();
             match command.ok_or_else(|| anyhow::anyhow!("No command specified. Use --help for usage."))? {
+                ChromeCommand::Profiles => browser::chrome::list_profiles(),
                 ChromeCommand::Urls(o) => browser::chrome::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 ChromeCommand::Visits(o) => browser::chrome::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 ChromeCommand::Searches(o) => browser::chrome::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
@@ -142,12 +137,10 @@ fn run() -> anyhow::Result<()> {
                 ChromeCommand::Summary(o) => browser::chrome::summary(o.from.as_deref(), o.to.as_deref(), p),
             }
         }
-        BrowserCmd::Chromium { profile, list_profiles, command } => {
-            if list_profiles {
-                return browser::chromium::list_profiles();
-            }
+        BrowserCmd::Chromium { profile, command } => {
             let p = profile.as_deref();
             match command.ok_or_else(|| anyhow::anyhow!("No command specified. Use --help for usage."))? {
+                ChromiumCommand::Profiles => browser::chromium::list_profiles(),
                 ChromiumCommand::Urls(o) => browser::chromium::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 ChromiumCommand::Visits(o) => browser::chromium::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 ChromiumCommand::Searches(o) => browser::chromium::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
@@ -157,12 +150,10 @@ fn run() -> anyhow::Result<()> {
                 ChromiumCommand::Summary(o) => browser::chromium::summary(o.from.as_deref(), o.to.as_deref(), p),
             }
         }
-        BrowserCmd::Edge { profile, list_profiles, command } => {
-            if list_profiles {
-                return browser::edge::list_profiles();
-            }
+        BrowserCmd::Edge { profile, command } => {
             let p = profile.as_deref();
             match command.ok_or_else(|| anyhow::anyhow!("No command specified. Use --help for usage."))? {
+                EdgeCommand::Profiles => browser::edge::list_profiles(),
                 EdgeCommand::Urls(o) => browser::edge::urls(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 EdgeCommand::Visits(o) => browser::edge::visits(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
                 EdgeCommand::Searches(o) => browser::edge::searches(o.from.as_deref(), o.to.as_deref(), o.limit, &o.format, p),
