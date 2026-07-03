@@ -62,6 +62,13 @@ pub fn downloads(from: Option<&str>, to: Option<&str>, limit: i64, format: &str,
 
 pub fn summary(from: Option<&str>, to: Option<&str>, profile: Option<&str>) -> Result<()> {
     let db_path = get_db_path(profile)?;
-    let _guard = db::TempFileGuard(db::prepare_db(&db_path)?);
-    chromium_shared::summary(&_guard.0, "Edge", from, to)
+    let dir_name = db_path
+        .parent()
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "?".to_string());
+    let desc = chromium_shared::profile_desc(&base_dir(), &dir_name);
+    let copied = db::prepare_db(&db_path)?;
+    let _guard = db::TempFileGuard(copied);
+    chromium_shared::summary(&_guard.0, "Edge", &desc, from, to)
 }
