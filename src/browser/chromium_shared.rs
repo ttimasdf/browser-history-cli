@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::db;
@@ -26,41 +27,11 @@ pub fn find_chromium_db_path(base_dir: &Path, profile: Option<&str>) -> Result<P
         return Ok(base_dir.join("Default/History"));
     }
 
+    let (_names, _order, last_used) = read_profile_names(base_dir);
+
+    // Collect available profile dirs with History files
     let entries = std::fs::read_dir(base_dir)?;
-    let mut profiles: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
-                && e.file_name().to_string_lossy().starts_with("Profile ")
-        })
-        .map(|e| e.path().join("History"))
-        .filter(|p| p.exists())
-        .collect();
-    profiles.sort();
-    if let Some(p) = profiles.into_iter().next() {
-        return Ok(p);
-    }
-
-    anyhow::bail!(
-        "No History DB found in {}. Set env var or use --profile.",
-        base_dir.display()
-    )
-}
-
-pub fn list_profiles(base_dir: &Path) -> Result<()> {
-    if !base_dir.exists() {
-        anyhow::bail!("Browser data directory not found: {}", base_dir.display());
-    }
-
-    let mut found = Vec::new();
-
-    let default = base_dir.join("Default/History");
-    if default.exists() {
-        found.push("Default".to_string());
-    }
-
-    let entries = std::fs::read_dir(base_dir)?;
-    let mut profile_dirs: Vec<String> = entries
+    let available: HashSet<String> = entries
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
@@ -69,18 +40,167 @@ pub fn list_profiles(base_dir: &Path) -> Result<()> {
         .filter(|e| e.path().join("History").exists())
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
-    profile_dirs.sort();
-    found.extend(profile_dirs);
 
-    if found.is_empty() {
-        println!("No profiles found in {}", base_dir.display());
+    // Try last_used first (most recently used profile)
+    if let Some(ref dir) = last_used {
+        if dir != "Default" && available.contains(dir) {
+            return Ok(base_dir.join(dir).join("History"));
+        }
+    }
+
+    // Fallback: alphabetical
+    let mut sorted: Vec<&String> = available.iter().collect();
+    sorted.sort();
+    if let Some(dir) = sorted.into_iter().next() {
+        return Ok(base_dir.join(dir).join("History"));
+    }
+
+    anyhow::bail!(
+        "No History DB found in {}. Set env var or use --profile.",
+        base_dir.display()
+    )
+}
+
+/// Build a human-readable profile description from directory name and Local State.
+/// e.g. "Profile 3 (Rabbit)" or just "Profile 2" if no display name set.
+pub fn profile_desc(base_dir: &Path, dir_name: &str) -> String {
+    let (names, _, _) = read_profile_names(base_dir);
+    if let Some(display) = names.get(dir_name) {
+        format!("{} ({})", dir_name, display)
     } else {
-        for p in &found {
-            println!("{}", p);
+        dir_name.to_string()
+    }
+}
+
+pub fn list_profiles(base_dir: &Path) -> Result<()> {
+    if !base_dir.exists() {
+        anyhow::bail!("Browser data directory not found: {}", base_dir.display());
+    }
+
+    let (display_names, order, _last_used) = read_profile_names(base_dir);
+
+    // Collect all profile dirs with History files
+    let has_default = base_dir.join("Default/History").exists();
+
+    let entries = std::fs::read_dir(base_dir)?;
+    let profile_set: std::collections::HashSet<String> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+        })
+        .filter(|e| e.path().join("History").exists())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+
+    if !has_default && profile_set.is_empty() {
+        println!("No profiles found in {}", base_dir.display());
+        return Ok(());
+    }
+
+    // Build ordered list from profiles_order, then any leftovers sorted alphabetically
+    let mut found: Vec<(String, String)> = Vec::new();
+    let mut used: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for dir in &order {
+        if dir == "Default" && has_default {
+            let display = display_names
+                .get(dir)
+                .cloned()
+                .unwrap_or_else(|| "Default".to_string());
+            found.push(("Default".to_string(), display));
+            used.insert("Default".to_string());
+        } else if profile_set.contains(dir) {
+            let display = display_names
+                .get(dir)
+                .cloned()
+                .unwrap_or_else(|| dir.clone());
+            found.push((dir.clone(), display));
+            used.insert(dir.clone());
+        }
+    }
+
+    // Default not in profiles_order — add it at the start
+    if has_default && !used.contains("Default") {
+        let display = display_names
+            .get("Default")
+            .cloned()
+            .unwrap_or_else(|| "Default".to_string());
+        found.push(("Default".to_string(), display));
+        used.insert("Default".to_string());
+    }
+
+    // Remaining profiles not in profiles_order — sort alphabetically
+    let mut remaining: Vec<String> = profile_set
+        .iter()
+        .filter(|d| d != &"Default" && !used.contains(d.as_str()))
+        .cloned()
+        .collect();
+    remaining.sort();
+    for p in &remaining {
+        let display = display_names
+            .get(p)
+            .cloned()
+            .unwrap_or_else(|| p.clone());
+        found.push((p.clone(), display));
+    }
+
+    for (i, (dir, display)) in found.iter().enumerate() {
+        if dir == "Default" || *display == *dir {
+            println!("[{}] {}", i + 1, dir);
+        } else {
+            println!("[{}] {}  ({})", i + 1, dir, display);
         }
     }
 
     Ok(())
+}
+
+/// Read profile display names, ordering, and last-used profile from `Local State` JSON.
+/// Returns: (name_map, profiles_order, last_used)
+fn read_profile_names(base_dir: &Path) -> (HashMap<String, String>, Vec<String>, Option<String>) {
+    let empty = (HashMap::new(), Vec::new(), None);
+    let local_state = base_dir.join("Local State");
+    let Ok(data) = std::fs::read_to_string(&local_state) else {
+        return empty;
+    };
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(&data) else {
+        return empty;
+    };
+    let profile = match root.get("profile") {
+        Some(p) => p,
+        None => return empty,
+    };
+
+    // Parse display names from info_cache
+    let mut names = HashMap::new();
+    if let Some(obj) = profile.get("info_cache").and_then(|v| v.as_object()) {
+        for (dir, info) in obj {
+            if let Some(name) = info.get("name").and_then(|n| n.as_str()) {
+                if !name.is_empty() {
+                    names.insert(dir.clone(), name.to_string());
+                }
+            }
+        }
+    }
+
+    // Parse profiles_order (for listing order)
+    let order: Vec<String> = profile
+        .get("profiles_order")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Parse last_used (single most-recent profile, for default selection)
+    let last_used = profile
+        .get("last_used")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+
+    (names, order, last_used)
 }
 
 pub fn urls(
@@ -280,6 +400,7 @@ pub fn contexts(
 pub fn summary(
     db_path: &Path,
     browser_name: &str,
+    profile_desc: &str,
     from: Option<&str>,
     to: Option<&str>,
 ) -> Result<()> {
@@ -291,6 +412,7 @@ pub fn summary(
     };
 
     println!("=== {} History Summary ===", browser_name);
+    println!("Profile: {}", profile_desc);
     if let Some(f) = from {
         println!("From: {}", f);
     }
